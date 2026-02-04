@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #fbbf24;
+      --accent2: #34d399;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --grid: #1f2937;
+    }
+    * { box-sizing: border-box; font-family: "Segoe UI", sans-serif; }
+    body {
+      margin: 0; padding: 16px;
+      background: radial-gradient(circle at 15% 20%, #0b1221, #0f172a 60%);
+      color: var(--text); min-height: 100vh;
+      display: grid; place-items: center;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 18px;
+      width: min(500px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+    h1 { margin: 0 0 6px; letter-spacing: 0.5px; }
+    p.sub { margin: 0 0 14px; color: var(--muted); }
+    #status { font-weight: 700; margin-bottom: 12px; }
+    #status.win { color: var(--accent2); }
+    #status.draw { color: var(--accent); }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 10px 0 16px;
+    }
+    .cell {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      background: #0c1426;
+      border: 1px solid var(--grid);
+      display: grid;
+      place-items: center;
+      font-size: clamp(38px, 12vw, 56px);
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+    .cell:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(251,191,36,0.25); background: #0f1a30; }
+    .cell.disabled { cursor: default; opacity: 0.55; box-shadow: none; transform: none; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      border: none; border-radius: 10px;
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #0b1221; font-weight: 700;
+      cursor: pointer; transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    button.secondary { background: #1f2a44; color: var(--text); }
+    button:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(251,191,36,0.25); }
+    .score {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 8px; color: var(--muted); font-weight: 700;
+    }
+    .score span { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Tic Tac Toe</h1>
+    <p class="sub">Play against a simple AI. First to align three wins.</p>
+    <div class="score">
+      <div>X wins: <span id="xWins">0</span></div>
+      <div>O wins: <span id="oWins">0</span></div>
+      <div>Draws: <span id="draws">0</span></div>
+    </div>
+    <div id="status">X to move</div>
+    <div id="board" class="board"></div>
+    <div class="actions">
+      <button id="resetBtn" class="secondary">Reset Board</button>
+      <button id="restartBtn">New Match</button>
+    </div>
+  </div>
+
+  <script>
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const resetBtn = document.getElementById("resetBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const xWinsEl = document.getElementById("xWins");
+    const oWinsEl = document.getElementById("oWins");
+    const drawsEl = document.getElementById("draws");
+
+    let board, current, gameOver;
+    let scores = { X: 0, O: 0, D: 0 };
+
+    function initBoard() {
+      board = Array(9).fill(null);
+      current = "X";
+      gameOver = false;
+      render();
+      setStatus(`${current} to move`);
+    }
+
+    function render() {
+      boardEl.innerHTML = "";
+      board.forEach((val, idx) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        if (gameOver || val) cell.classList.add("disabled");
+        cell.textContent = val || "";
+        cell.addEventListener("click", () => handleMove(idx));
+        boardEl.appendChild(cell);
+      });
+      xWinsEl.textContent = scores.X;
+      oWinsEl.textContent = scores.O;
+      drawsEl.textContent = scores.D;
+    }
+
+    function handleMove(idx) {
+      if (gameOver || board[idx]) return;
+      board[idx] = current;
+      if (checkWin(current)) {
+        scores[current]++; gameOver = true;
+        setStatus(`${current} wins!`, "win");
+      } else if (board.every(Boolean)) {
+        scores.D++; gameOver = true;
+        setStatus("Draw.", "draw");
+      } else {
+        current = current === "X" ? "O" : "X";
+        setStatus(`${current} to move`);
+        if (current === "O") aiMove(); // simple AI for O
+      }
+      render();
+    }
+
+    // AI: choose winning move, else blocking move, else center/corner/random
+    function aiMove() {
+      if (gameOver) return;
+      const move = bestAIMove("O");
+      handleMove(move);
+    }
+
+    function bestAIMove(mark) {
+      const opp = mark === "X" ? "O" : "X";
+      // try win
+      for (let i = 0; i < 9; i++) if (!board[i]) { board[i] = mark; if (checkWin(mark)) { board[i] = null; return i; } board[i] = null; }
+      // try block
+      for (let i = 0; i < 9; i++) if (!board[i]) { board[i] = opp; if (checkWin(opp)) { board[i] = null; return i; } board[i] = null; }
+      // center
+      if (!board[4]) return 4;
+      // corners
+      const corners = [0,2,6,8].filter(i => !board[i]);
+      if (corners.length) return corners[Math.floor(Math.random()*corners.length)];
+      // others
+      const moves = board.map((v,i)=>v?null:i).filter(i=>i!==null);
+      return moves[Math.floor(Math.random()*moves.length)];
+    }
+
+    function checkWin(mark) {
+      const lines = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+      return lines.some(line => line.every(i => board[i] === mark));
+    }
+
+    function setStatus(text, type="") {
+      statusEl.textContent = text;
+      statusEl.className = "";
+      if (type === "win") statusEl.classList.add("win");
+      if (type === "draw") statusEl.classList.add("draw");
+    }
+
+    resetBtn.addEventListener("click", () => initBoard());
+    restartBtn.addEventListener("click", () => { scores = { X:0, O:0, D:0 }; initBoard(); });
+
+    initBoard();
+  </script>
+</body>
+</html>
